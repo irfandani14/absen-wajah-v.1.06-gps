@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Presensi Wajah V.1.06 (GPS 300m) - SMA NEGERI 1 LABUHAN HAJI</title>
-  <meta name="description" content="Sistem Presensi Wajah Realtime berbasis Browser dan Validasi Lokasi GPS 300m." />
+  <title>Presensi Wajah V.1.06 (GPS & Presensi Khusus) - SMA NEGERI 1 LABUHAN HAJI</title>
+  <meta name="description" content="Sistem Presensi Wajah Realtime berbasis Browser, Validasi GPS 300m, dan Presensi Khusus Sakit/Izin/Dinas Luar." />
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -71,7 +71,7 @@
       <!-- Action Area: Multi-Role Selection & Password Modals -->
       <div id="home-action-container" class="w-full flex flex-col items-center gap-3 mt-1">
         
-        <!-- Role Buttons -->
+        <!-- Role Buttons & Tombol Presensi Khusus -->
         <div id="role-selection-box" class="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-2.5 w-full max-w-xl">
           <button onclick="openAdminPasswordModal()" class="w-full sm:w-auto flex-1 py-3 px-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer transform active:scale-95 whitespace-nowrap">
             <i class="fa-solid fa-user-shield"></i> Masuk Sebagai Admin
@@ -81,6 +81,11 @@
           </button>
           <button onclick="loginAsPiket()" class="w-full sm:w-auto flex-1 py-3 px-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer transform active:scale-95 whitespace-nowrap">
             <i class="fa-solid fa-user-clock"></i> Masuk Sebagai Guru atau Piket
+          </button>
+          
+          <!-- TOMBOL KHUSUS PRESENSI SAKIT / IZIN / DINAS LUAR (TANPA GPS) -->
+          <button onclick="loginAsKhusus()" class="w-full py-3 px-3.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-indigo-600/30 transition-all flex items-center justify-center gap-2 cursor-pointer transform active:scale-95 whitespace-nowrap mt-1">
+            <i class="fa-solid fa-notes-medical text-base"></i> PRESENSI KHUSUS (SAKIT / IZIN / DINAS LUAR)
           </button>
         </div>
 
@@ -228,6 +233,32 @@
 
         <!-- Camera Card -->
         <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-3 sm:p-4 flex flex-col gap-3 relative shadow-md flex-1 transition-colors">
+          
+          <!-- BANNER PRESENSI KHUSUS (DIREKTORAT TANPA GPS) -->
+          <div id="khusus-mode-banner" class="hidden bg-gradient-to-r from-purple-950/90 via-indigo-950/90 to-slate-900/90 border border-indigo-500/50 p-3 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-2.5 shadow-lg">
+            <div class="flex items-center gap-2">
+              <i class="fa-solid fa-notes-medical text-indigo-400 text-lg animate-pulse"></i>
+              <div>
+                <div class="text-xs font-bold text-white uppercase tracking-wide">Mode Presensi Khusus (Tanpa GPS)</div>
+                <div class="text-[10px] text-indigo-200 font-mono">Pilih keterangan sebelum memindai wajah:</div>
+              </div>
+            </div>
+            <div class="flex items-center gap-1.5 w-full sm:w-auto justify-center">
+              <button type="button" onclick="setKhususStatus('Sakit')" id="btn-status-sakit" class="flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-purple-500/50 bg-purple-900/40 text-purple-200 hover:bg-purple-600 hover:text-white transition-all">
+                <i class="fa-solid fa-bed-pulse"></i> Sakit
+              </button>
+              <button type="button" onclick="setKhususStatus('Izin')" id="btn-status-izin" class="flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-indigo-500/50 bg-indigo-900/40 text-indigo-200 hover:bg-indigo-600 hover:text-white transition-all">
+                <i class="fa-solid fa-envelope-open-text"></i> Izin
+              </button>
+              <button type="button" onclick="setKhususStatus('Dinas Luar')" id="btn-status-dinas" class="flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-500/50 bg-amber-900/40 text-amber-200 hover:bg-amber-600 hover:text-white transition-all">
+                <i class="fa-solid fa-briefcase"></i> Dinas Luar
+              </button>
+              <button type="button" onclick="exitKhususMode()" title="Kembali ke Mode Reguler GPS" class="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700">
+                <i class="fa-solid fa-xmark"></i> Batal
+              </button>
+            </div>
+          </div>
+
           <div class="flex flex-wrap items-center justify-between gap-2">
             <div class="flex items-center gap-2">
               <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
@@ -285,7 +316,7 @@
 
           <!-- Camera Footnote & GPS Warning -->
           <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 gap-1 pt-0.5">
-            <span class="flex items-center gap-1.5 truncate">
+            <span id="geofence-footer-info" class="flex items-center gap-1.5 truncate">
               <i class="fa-solid fa-location-crosshairs text-emerald-500"></i> Geofencing Radius Maks: <b>300 Meter</b> (SMA Negeri 1 Labuhan Haji)
             </span>
             <span id="fps-counter" class="font-mono text-slate-400 dark:text-slate-500 shrink-0">Akurasi Tinggi</span>
@@ -296,27 +327,41 @@
       <!-- Sisi Kanan: Log Kehadiran Realtime -->
       <div class="lg:col-span-5 flex flex-col gap-3 sm:gap-4">
         
-        <!-- Summary Stats Card -->
-        <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5">
-          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 sm:p-2.5 transition-colors">
-            <span class="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 block truncate">Total</span>
-            <div id="stat-total" class="text-base sm:text-xl font-bold font-mono text-slate-800 dark:text-white mt-0.5">0</div>
+        <!-- Summary Stats Card (8 Konter Statistik Presensi) -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-4 gap-2">
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate">Total</span>
+            <div id="stat-total" class="text-base sm:text-lg font-bold font-mono text-slate-800 dark:text-white mt-0.5">0</div>
           </div>
-          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 sm:p-2.5 transition-colors">
-            <span class="text-[10px] sm:text-xs text-emerald-600 dark:text-emerald-400 block truncate">Hadir</span>
-            <div id="stat-present" class="text-base sm:text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">0</div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block truncate">Hadir</span>
+            <div id="stat-present" class="text-base sm:text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">0</div>
           </div>
-          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 sm:p-2.5 transition-colors">
-            <span class="text-[10px] sm:text-xs text-amber-600 dark:text-amber-400 block truncate">Terlambat</span>
-            <div id="stat-late" class="text-base sm:text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">0</div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-amber-600 dark:text-amber-400 block truncate">Terlambat</span>
+            <div id="stat-late" class="text-base sm:text-lg font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">0</div>
           </div>
-          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 sm:p-2.5 transition-colors">
-            <span class="text-[10px] sm:text-xs text-sky-600 dark:text-sky-400 block truncate">Pulang</span>
-            <div id="stat-leave" class="text-base sm:text-xl font-bold font-mono text-sky-600 dark:text-sky-400 mt-0.5">0</div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-sky-600 dark:text-sky-400 block truncate">Pulang</span>
+            <div id="stat-leave" class="text-base sm:text-lg font-bold font-mono text-sky-600 dark:text-sky-400 mt-0.5">0</div>
           </div>
-          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 sm:p-2.5 transition-colors col-span-2 sm:col-span-1">
-            <span class="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 block truncate">Belum Hadir</span>
-            <div id="stat-absent" class="text-base sm:text-xl font-bold font-mono text-slate-600 dark:text-slate-400 mt-0.5">0</div>
+
+          <!-- Konter Tambahan: Sakit, Izin, Dinas Luar, Belum Hadir -->
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-purple-600 dark:text-purple-400 block truncate">Sakit</span>
+            <div id="stat-sakit" class="text-base sm:text-lg font-bold font-mono text-purple-600 dark:text-purple-400 mt-0.5">0</div>
+          </div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-indigo-600 dark:text-indigo-400 block truncate">Izin</span>
+            <div id="stat-izin" class="text-base sm:text-lg font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">0</div>
+          </div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-orange-600 dark:text-orange-400 block truncate">Dinas Luar</span>
+            <div id="stat-dinas" class="text-base sm:text-lg font-bold font-mono text-orange-600 dark:text-orange-400 mt-0.5">0</div>
+          </div>
+          <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2 transition-colors">
+            <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate">Belum Hadir</span>
+            <div id="stat-absent" class="text-base sm:text-lg font-bold font-mono text-slate-600 dark:text-slate-400 mt-0.5">0</div>
           </div>
         </div>
 
@@ -386,6 +431,10 @@
               <option value="Hadir">Hadir</option>
               <option value="Terlambat">Terlambat</option>
               <option value="Pulang">Pulang</option>
+              <option value="Sakit">Sakit</option>
+              <option value="Izin">Izin</option>
+              <option value="Dinas Luar">Dinas Luar</option>
+              <option value="Tidak Hadir">Tidak Hadir</option>
             </select>
           </div>
           <div class="self-end w-full sm:w-auto mt-1 sm:mt-0">
@@ -406,23 +455,39 @@
         </div>
       </div>
 
-      <!-- Rekap Summary Stats -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-3 sm:p-4 shadow-md transition-colors">
-          <span class="text-xs text-slate-500 dark:text-slate-400">Total Presensi</span>
-          <div id="rekap-stat-total" class="text-xl sm:text-2xl font-bold font-mono text-slate-800 dark:text-white mt-1">0</div>
+      <!-- Rekap Summary Stats (8 Konter Lengkap termasuk Sakit, Izin, Dinas Luar, & Tidak Hadir) -->
+      <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2.5">
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-slate-500 dark:text-slate-400 block truncate">Total Presensi</span>
+          <div id="rekap-stat-total" class="text-base sm:text-xl font-bold font-mono text-slate-800 dark:text-white mt-0.5">0</div>
         </div>
-        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-3 sm:p-4 shadow-md transition-colors">
-          <span class="text-xs text-emerald-600 dark:text-emerald-400">Tepat Waktu</span>
-          <div id="rekap-stat-hadir" class="text-xl sm:text-2xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-1">0</div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-emerald-600 dark:text-emerald-400 block truncate">Tepat Waktu</span>
+          <div id="rekap-stat-hadir" class="text-base sm:text-xl font-bold font-mono text-emerald-600 dark:text-emerald-400 mt-0.5">0</div>
         </div>
-        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-3 sm:p-4 shadow-md transition-colors">
-          <span class="text-xs text-amber-600 dark:text-amber-400">Terlambat</span>
-          <div id="rekap-stat-terlambat" class="text-xl sm:text-2xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-1">0</div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-amber-600 dark:text-amber-400 block truncate">Terlambat</span>
+          <div id="rekap-stat-terlambat" class="text-base sm:text-xl font-bold font-mono text-amber-600 dark:text-amber-400 mt-0.5">0</div>
         </div>
-        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-3 sm:p-4 shadow-md transition-colors">
-          <span class="text-xs text-sky-600 dark:text-sky-400">Pulang</span>
-          <div id="rekap-stat-pulang" class="text-xl sm:text-2xl font-bold font-mono text-sky-600 dark:text-sky-400 mt-1">0</div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-sky-600 dark:text-sky-400 block truncate">Pulang</span>
+          <div id="rekap-stat-pulang" class="text-base sm:text-xl font-bold font-mono text-sky-600 dark:text-sky-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-purple-600 dark:text-purple-400 block truncate">Sakit</span>
+          <div id="rekap-stat-sakit" class="text-base sm:text-xl font-bold font-mono text-purple-600 dark:text-purple-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-indigo-600 dark:text-indigo-400 block truncate">Izin</span>
+          <div id="rekap-stat-izin" class="text-base sm:text-xl font-bold font-mono text-indigo-600 dark:text-indigo-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-orange-600 dark:text-orange-400 block truncate">Dinas Luar</span>
+          <div id="rekap-stat-dinas" class="text-base sm:text-xl font-bold font-mono text-orange-600 dark:text-orange-400 mt-0.5">0</div>
+        </div>
+        <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-2.5 shadow-md transition-colors">
+          <span class="text-[10px] text-rose-500 dark:text-rose-400 block truncate">Tidak Hadir</span>
+          <div id="rekap-stat-tidakhadir" class="text-base sm:text-xl font-bold font-mono text-rose-500 dark:text-rose-400 mt-0.5">0</div>
         </div>
       </div>
 
@@ -603,10 +668,10 @@
 
             <div class="text-[11px] text-slate-600 dark:text-slate-400 bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border p-2.5 rounded-lg leading-relaxed font-mono">
               • &lt; <span id="disp-time-mulai" class="text-slate-500 font-bold">06:00</span> &rarr; <span class="text-slate-500 font-bold">Belum Dibuka</span><br>
-              • <span id="disp-time-mulai-2" class="text-emerald-600 dark:text-emerald-400 font-bold">06:00</span> - <span id="disp-time-terlambat" class="text-emerald-600 dark:text-emerald-400 font-bold">07:45</span> &rarr; <span class="text-emerald-600 dark:text-emerald-400 font-bold">JAM MASUK (Hadir)</span><br>
-              • &gt; <span id="disp-time-terlambat-2" class="text-amber-600 dark:text-amber-400 font-bold">07:45</span> s.d. &lt; <span id="disp-time-pulang" class="text-sky-600 dark:text-sky-400 font-bold">14:00</span> &rarr; <span class="text-amber-600 dark:text-amber-400 font-bold">TERLAMBAT</span><br>
-              • <span id="disp-time-pulang-2" class="text-sky-600 dark:text-sky-400 font-bold">14:00</span> - <span id="disp-time-akhir-pulang" class="text-sky-600 dark:text-sky-400 font-bold">17:00</span> &rarr; <span class="text-sky-600 dark:text-sky-400 font-bold">JAM PULANG</span><br>
-              • &gt; <span id="disp-time-akhir-pulang-2" class="text-rose-600 dark:text-rose-400 font-bold">17:00</span> &rarr; <span class="text-rose-600 dark:text-rose-400 font-bold">Presensi Ditutup</span>
+              • <span id="disp-time-mulai-2" class="text-emerald-600 dark:text-emerald-400 font-bold">06:00</span> - <span id="disp-time-terlambat" class="text-emerald-600 dark:text-emerald-400 font-bold">08:00</span> &rarr; <span class="text-emerald-600 dark:text-emerald-400 font-bold">JAM MASUK (Hadir)</span><br>
+              • &gt; <span id="disp-time-terlambat-2" class="text-amber-600 dark:text-amber-400 font-bold">08:00</span> s.d. &lt; <span id="disp-time-pulang" class="text-sky-600 dark:text-sky-400 font-bold">14:00</span> &rarr; <span class="text-amber-600 dark:text-amber-400 font-bold">TERLAMBAT</span><br>
+              • <span id="disp-time-pulang-2" class="text-sky-600 dark:text-sky-400 font-bold">14:00</span> - <span id="disp-time-akhir-pulang" class="text-sky-600 dark:text-sky-400 font-bold">18:00</span> &rarr; <span class="text-sky-600 dark:text-sky-400 font-bold">JAM PULANG</span><br>
+              • &gt; <span id="disp-time-akhir-pulang-2" class="text-rose-600 dark:text-rose-400 font-bold">18:00</span> &rarr; <span class="text-rose-600 dark:text-rose-400 font-bold">Presensi Ditutup</span>
             </div>
 
             <button type="submit" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium rounded-lg transition-colors flex items-center justify-center gap-1.5">
@@ -794,6 +859,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
     let userLocation = null; // Data GPS Pengguna { lat, lng, distance, isWithinRadius }
     let gpsWatchId = null;
 
+    // --- STATE PRESENSI KHUSUS (SAKIT / IZIN / DINAS LUAR) ---
+    let isKhususMode = false;
+    let selectedKhususStatus = null;
+
     const MODEL_URL = 'https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model';
 
     // --- RUMUS HAVERSINE DISTANCE (PERHITUNGAN JARAK DALAM KM) ---
@@ -874,6 +943,61 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       }
     }
 
+    // --- FUNGSI TATA KELOLA MODE PRESENSI KHUSUS ---
+    function loginAsKhusus() {
+      currentRole = 'piket';
+      isKhususMode = true;
+      selectedKhususStatus = null;
+      document.getElementById('role-selection-box').classList.add('hidden');
+      updateKhususBannerUI();
+      startAppTransition();
+    }
+
+    function setKhususStatus(status) {
+      selectedKhususStatus = status;
+      updateKhususBannerUI();
+      speakText(`Mode ${status} Dipilih`);
+    }
+
+    function exitKhususMode() {
+      isKhususMode = false;
+      selectedKhususStatus = null;
+      updateKhususBannerUI();
+    }
+
+    function updateKhususBannerUI() {
+      const banner = document.getElementById('khusus-mode-banner');
+      const footerInfo = document.getElementById('geofence-footer-info');
+      const btnSakit = document.getElementById('btn-status-sakit');
+      const btnIzin = document.getElementById('btn-status-izin');
+      const btnDinas = document.getElementById('btn-status-dinas');
+
+      if (isKhususMode) {
+        if (banner) banner.classList.remove('hidden');
+        if (footerInfo) {
+          footerInfo.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Status: <b class="text-indigo-400">Presensi Khusus (Tanpa Verifikasi Radius GPS)</b>`;
+        }
+      } else {
+        if (banner) banner.classList.add('hidden');
+        if (footerInfo) {
+          footerInfo.innerHTML = `<i class="fa-solid fa-location-crosshairs text-emerald-500"></i> Geofencing Radius Maks: <b>300 Meter</b> (SMA Negeri 1 Labuhan Haji)`;
+        }
+      }
+
+      // Reset style tombol pilihan
+      if (btnSakit) btnSakit.className = (selectedKhususStatus === 'Sakit') 
+        ? 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-purple-400 bg-purple-600 text-white shadow-md shadow-purple-600/30'
+        : 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-purple-500/50 bg-purple-900/40 text-purple-200 hover:bg-purple-600 hover:text-white transition-all';
+
+      if (btnIzin) btnIzin.className = (selectedKhususStatus === 'Izin')
+        ? 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-indigo-400 bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+        : 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-indigo-500/50 bg-indigo-900/40 text-indigo-200 hover:bg-indigo-600 hover:text-white transition-all';
+
+      if (btnDinas) btnDinas.className = (selectedKhususStatus === 'Dinas Luar')
+        ? 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-400 bg-amber-600 text-white shadow-md shadow-amber-600/30'
+        : 'flex-1 sm:flex-none px-3 py-1.5 text-xs font-bold rounded-lg border border-amber-500/50 bg-amber-900/40 text-amber-200 hover:bg-amber-600 hover:text-white transition-all';
+    }
+
     // --- TOGGLE VOICE AI CONTROLS ---
     function toggleVoiceAI() {
       isVoiceEnabled = !isVoiceEnabled;
@@ -928,7 +1052,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
 
-    // --- DEFAULT ATTENDANCE TIME SETTINGS ---
+    // --- DEFAULT ATTENDANCE TIME SETTINGS (DIPERBAHUI SESUAI INSTRUKSI) ---
     function getAttendanceSettings() {
       const now = new Date();
       const day = now.getDay();
@@ -936,10 +1060,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
 
       const defaults = { 
         jamMulai: '06:00',
-        jamMasuk: '07:30', 
-        jamTerlambat: '07:45', 
+        jamMasuk: '08:00', 
+        jamTerlambat: '08:00', 
         jamPulang: isFriday ? '11:30' : '14:00',
-        jamAkhirPulang: '17:00'
+        jamAkhirPulang: '18:00'
       };
 
       try {
@@ -1121,7 +1245,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
 
     function loginAsPiket() {
       currentRole = 'piket';
+      isKhususMode = false;
       document.getElementById('role-selection-box').classList.add('hidden');
+      updateKhususBannerUI();
       startAppTransition();
     }
 
@@ -1136,8 +1262,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
         if (btnEnroll) btnEnroll.classList.add('hidden');
         if (btnConfig) btnConfig.classList.add('hidden');
         if (roleBadge) {
-          roleBadge.textContent = 'PIKET';
-          roleBadge.className = 'text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-semibold font-mono';
+          roleBadge.textContent = isKhususMode ? 'PRESENSI KHUSUS' : 'PIKET';
+          roleBadge.className = isKhususMode
+            ? 'text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/30 font-semibold font-mono'
+            : 'text-[9px] sm:text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/30 font-semibold font-mono';
         }
         switchTab('presensi');
       } else if (currentRole === 'kepsek') {
@@ -1181,6 +1309,10 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       if (document.fullscreenElement) document.exitFullscreen().catch(e => {});
 
       currentRole = 'admin';
+      isKhususMode = false;
+      selectedKhususStatus = null;
+      updateKhususBannerUI();
+
       const homeScreen = document.getElementById('home-screen');
       const actionContainer = document.getElementById('home-action-container');
       const loadingContainer = document.getElementById('home-loading-container');
@@ -1605,12 +1737,73 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       }, 300);
     }
 
-    // --- EKSEKUSI PRESENSI DENGAN VALIDASI GPS GEOFENCING (RADIUS MAKSIMAL 300 METER) ---
+    // --- EKSEKUSI PRESENSI (MODE REGULER GPS & MODE KHUSUS SAKIT/IZIN/DINAS) ---
     async function triggerAttendance(student) {
       const today = new Date().toISOString().split('T')[0];
       const now = new Date();
       const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
       const timeShort = timeStr.substring(0, 5);
+
+      // --- ALUR MODE PRESENSI KHUSUS (SAKIT / IZIN / DINAS LUAR - TANPA VERIFIKASI GPS) ---
+      if (isKhususMode) {
+        if (!selectedKhususStatus) {
+          if (lastSpokenStudentId !== student.id || (Date.now() - lastSpokenTime) >= 6000) {
+            showToastError(student, timeStr, 'Pilih Kategori Khusus', 'Tekan Sakit, Izin, atau Dinas Luar');
+            playErrorChime();
+            speakText('Harap pilih tombol Sakit, Izin, atau Dinas Luar terlebih dahulu');
+            lastSpokenStudentId = student.id;
+            lastSpokenTime = Date.now();
+          }
+          return;
+        }
+
+        if (lastSpokenStudentId === student.id && (Date.now() - lastSpokenTime) < 10000) return;
+
+        const alreadyKhusus = todayAttendances.find(a => a.student_id === student.id && a.date === today);
+        if (alreadyKhusus) {
+          showSuccessToast(student, alreadyKhusus.time, 'Sudah Absen (' + alreadyKhusus.status + ')');
+          speakText(`${student.name} Sudah Terdata ${alreadyKhusus.status}`);
+          lastSpokenStudentId = student.id;
+          lastSpokenTime = Date.now();
+          return;
+        }
+
+        lastSpokenStudentId = student.id;
+        lastSpokenTime = Date.now();
+
+        playSuccessChime();
+        speakText(`${student.name} Presensi ${selectedKhususStatus}`);
+
+        const newKhususRec = {
+          id: 'att-' + Date.now(),
+          student_id: student.id,
+          class_name: student.class_name,
+          date: today,
+          time: timeStr,
+          status: selectedKhususStatus
+        };
+
+        todayAttendances.unshift(newKhususRec);
+        renderAttendanceList();
+        showSuccessToast(student, timeStr, 'Presensi Khusus (' + selectedKhususStatus + ')');
+
+        if (supabaseClient) {
+          try {
+            await supabaseClient.from('attendances').insert([{
+              student_id: student.id,
+              class_name: student.class_name,
+              date: today,
+              time: timeStr,
+              status: selectedKhususStatus
+            }]);
+          } catch (e) {}
+        } else {
+          localStorage.setItem('absensi_local_attendances', JSON.stringify(todayAttendances));
+        }
+        return;
+      }
+
+      // --- ALUR MODE PRESENSI REGULER (DENGAN GPS 300 METER) ---
 
       // 1. VERIFIKASI LOKASI GPS (RADIUS MAKSIMAL 300 METER SEKOLAH)
       if (!userLocation) {
@@ -1764,6 +1957,12 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 font-mono font-medium">Terlambat</span>`;
       } else if (status === 'Pulang') {
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-600 dark:text-sky-400 border border-sky-500/40 font-mono font-medium">Pulang</span>`;
+      } else if (status === 'Sakit') {
+        return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/40 font-mono font-medium">Sakit</span>`;
+      } else if (status === 'Izin') {
+        return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border border-indigo-500/40 font-mono font-medium">Izin</span>`;
+      } else if (status === 'Dinas Luar') {
+        return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/40 font-mono font-medium">Dinas Luar</span>`;
       } else if (status === 'Hadir') {
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-mono font-medium">Hadir</span>`;
       } else {
@@ -1801,12 +2000,18 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       const present = presentList.filter(s => s.attendanceStatus === 'Hadir').length;
       const late = presentList.filter(s => s.attendanceStatus === 'Terlambat').length;
       const leave = presentList.filter(s => s.attendanceStatus === 'Pulang').length;
+      const sakit = presentList.filter(s => s.attendanceStatus === 'Sakit').length;
+      const izin = presentList.filter(s => s.attendanceStatus === 'Izin').length;
+      const dinas = presentList.filter(s => s.attendanceStatus === 'Dinas Luar').length;
       const absent = total - presentList.length;
 
       document.getElementById('stat-total').textContent = total;
       document.getElementById('stat-present').textContent = present;
       document.getElementById('stat-late').textContent = late;
       document.getElementById('stat-leave').textContent = leave;
+      document.getElementById('stat-sakit').textContent = sakit;
+      document.getElementById('stat-izin').textContent = izin;
+      document.getElementById('stat-dinas').textContent = dinas;
       document.getElementById('stat-absent').textContent = absent;
 
       if (list.length === 0) {
@@ -1880,17 +2085,36 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       });
 
       if (filterClass !== 'ALL') filtered = filtered.filter(item => item.class_name === filterClass);
-      if (filterStatus !== 'ALL') filtered = filtered.filter(item => item.status === filterStatus);
+      
+      if (filterStatus !== 'ALL') {
+        if (filterStatus === 'Tidak Hadir') {
+          // Filter khusus status Tidak Hadir
+          filtered = filtered.filter(item => item.status === 'Tidak Hadir' || item.status === 'Belum Hadir');
+        } else {
+          filtered = filtered.filter(item => item.status === filterStatus);
+        }
+      }
+
       if (search) {
         filtered = filtered.filter(item => 
           item.student_name.toLowerCase().includes(search) || item.nisn.includes(search)
         );
       }
 
+      // Hitung Total Pengguna Terdaftar untuk Kalkulasi "Tidak Hadir" jika rekap harian
+      const totalRegistered = registeredStudents.length;
+      const totalAttendedIDs = new Set(rekapData.map(r => r.student_id)).size;
+      const totalTidakHadir = Math.max(0, totalRegistered - totalAttendedIDs);
+
       document.getElementById('rekap-stat-total').textContent = filtered.length;
       document.getElementById('rekap-stat-hadir').textContent = filtered.filter(i => i.status === 'Hadir').length;
       document.getElementById('rekap-stat-terlambat').textContent = filtered.filter(i => i.status === 'Terlambat').length;
       document.getElementById('rekap-stat-pulang').textContent = filtered.filter(i => i.status === 'Pulang').length;
+      document.getElementById('rekap-stat-sakit').textContent = filtered.filter(i => i.status === 'Sakit').length;
+      document.getElementById('rekap-stat-izin').textContent = filtered.filter(i => i.status === 'Izin').length;
+      document.getElementById('rekap-stat-dinas').textContent = filtered.filter(i => i.status === 'Dinas Luar').length;
+      document.getElementById('rekap-stat-tidakhadir').textContent = totalTidakHadir;
+      
       document.getElementById('rekap-count-badge').textContent = filtered.length + ' Record';
 
       if (filtered.length === 0) {
@@ -1913,6 +2137,9 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
                 <option value="Hadir" ${item.status === 'Hadir' ? 'selected' : ''}>Hadir</option>
                 <option value="Terlambat" ${item.status === 'Terlambat' ? 'selected' : ''}>Terlambat</option>
                 <option value="Pulang" ${item.status === 'Pulang' ? 'selected' : ''}>Pulang</option>
+                <option value="Sakit" ${item.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
+                <option value="Izin" ${item.status === 'Izin' ? 'selected' : ''}>Izin</option>
+                <option value="Dinas Luar" ${item.status === 'Dinas Luar' ? 'selected' : ''}>Dinas Luar</option>
               </select>
               <button onclick="deleteAttendanceRecord('${item.id}')" title="Hapus Record" class="p-1 text-slate-400 hover:text-rose-500 transition-colors">
                 <i class="fa-solid fa-trash"></i>
