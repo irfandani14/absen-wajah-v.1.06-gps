@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Presensi Wajah V.1.06 (GPS & Presensi Khusus) - SMA NEGERI 1 LABUHAN HAJI</title>
-  <meta name="description" content="Sistem Presensi Wajah Realtime berbasis Browser, Validasi GPS 300m, dan Presensi Khusus Sakit/Izin/Dinas Luar." />
+  <title>Presensi Wajah V.1.06 (GPS & Rekap Total) - SMA NEGERI 1 LABUHAN HAJI</title>
+  <meta name="description" content="Sistem Presensi Wajah Realtime berbasis Browser, Validasi GPS 300m, Presensi Khusus, dan Rekap Total Terintegrasi." />
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -80,7 +80,7 @@
             <i class="fa-solid fa-user-tie"></i> Masuk Sebagai Kepala Sekolah
           </button>
           <button onclick="loginAsPiket()" class="w-full sm:w-auto flex-1 py-3 px-3.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer transform active:scale-95 whitespace-nowrap">
-            <i class="fa-solid fa-user-clock"></i> Masuk Sebagai Guru atau Piket
+            <i class="fa-solid fa-user-clock"></i> Masuk Sebagai Piket
           </button>
           
           <!-- TOMBOL KHUSUS PRESENSI SAKIT / IZIN / DINAS LUAR (TANPA GPS) -->
@@ -495,7 +495,7 @@
       <div class="bg-white border-slate-200 dark:bg-slate-900 dark:border-slate-800 border rounded-xl p-4 sm:p-5 shadow-md flex-1 flex flex-col min-h-[300px] transition-colors">
         <div class="flex items-center justify-between mb-3">
           <h2 class="text-xs sm:text-base font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
-            <i class="fa-solid fa-list-check text-emerald-500 dark:text-emerald-400"></i> Tabel Rekapitulasi Presensi
+            <i class="fa-solid fa-list-check text-emerald-500 dark:text-emerald-400"></i> Tabel Rekapitulasi Presensi (Keseluruhan User)
           </h2>
           <span id="rekap-count-badge" class="font-mono text-xs px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-md">0 Record</span>
         </div>
@@ -658,7 +658,7 @@
               </div>
               <div>
                 <label class="text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-300 mb-1 block">Jam Pulang</label>
-                <input type="time" id="cfg-time-pulang" required class="w-full bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border rounded-lg px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 font-mono">
+                <input type="time" id="cfg-time-pulang" required class="w-full bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border rounded-lg px-2 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:border-emerald-500 font-mono font-mono">
               </div>
               <div class="col-span-2 sm:col-span-1">
                 <label class="text-[10px] sm:text-[11px] text-slate-700 dark:text-slate-300 mb-1 block">Akhir Pulang</label>
@@ -1052,7 +1052,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
 
-    // --- DEFAULT ATTENDANCE TIME SETTINGS (DIPERBAHUI SESUAI INSTRUKSI) ---
+    // --- DEFAULT ATTENDANCE TIME SETTINGS ---
     function getAttendanceSettings() {
       const now = new Date();
       const day = now.getDay();
@@ -1965,6 +1965,8 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/40 font-mono font-medium">Dinas Luar</span>`;
       } else if (status === 'Hadir') {
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-mono font-medium">Hadir</span>`;
+      } else if (status === 'Tidak Hadir') {
+        return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/40 font-mono font-medium">Tidak Hadir</span>`;
       } else {
         return `<span class="text-[10px] sm:text-xs px-2 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-300 dark:border-slate-700 font-medium">Belum Hadir</span>`;
       }
@@ -2069,13 +2071,19 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       renderRekapTable();
     }
 
+    // --- REKAP TABEL DENGAN DAFTAR USER KESELURUHAN TERMASUK STATUS "TIDAK HADIR" ---
     function renderRekapTable() {
       const tbody = document.getElementById('rekap-tbody');
       const search = (document.getElementById('rekap-search').value || '').toLowerCase();
       const filterClass = document.getElementById('rekap-class-filter').value;
       const filterStatus = document.getElementById('rekap-status-filter').value;
+      const startDate = document.getElementById('rekap-start-date').value || new Date().toISOString().split('T')[0];
 
-      let filtered = rekapData.map(a => {
+      // Ambil daftar student_id yang sudah ada presensinya di rekapData
+      const attendedStudentIds = new Set(rekapData.map(a => a.student_id));
+
+      // 1. Masukkan record presensi asli
+      let combined = rekapData.map(a => {
         const student = registeredStudents.find(s => s.id === a.student_id) || {};
         return {
           ...a,
@@ -2084,16 +2092,26 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
         };
       });
 
-      if (filterClass !== 'ALL') filtered = filtered.filter(item => item.class_name === filterClass);
-      
-      if (filterStatus !== 'ALL') {
-        if (filterStatus === 'Tidak Hadir') {
-          // Filter khusus status Tidak Hadir
-          filtered = filtered.filter(item => item.status === 'Tidak Hadir' || item.status === 'Belum Hadir');
-        } else {
-          filtered = filtered.filter(item => item.status === filterStatus);
+      // 2. Masukkan pengguna yang belum/tidak hadir ke dalam list rekap
+      registeredStudents.forEach(s => {
+        if (!attendedStudentIds.has(s.id)) {
+          combined.push({
+            id: 'absent-' + s.id,
+            student_id: s.id,
+            class_name: s.class_name,
+            date: startDate,
+            time: '-',
+            status: 'Tidak Hadir',
+            student_name: s.name,
+            nisn: s.nisn
+          });
         }
-      }
+      });
+
+      let filtered = combined;
+
+      if (filterClass !== 'ALL') filtered = filtered.filter(item => item.class_name === filterClass);
+      if (filterStatus !== 'ALL') filtered = filtered.filter(item => item.status === filterStatus);
 
       if (search) {
         filtered = filtered.filter(item => 
@@ -2101,11 +2119,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
         );
       }
 
-      // Hitung Total Pengguna Terdaftar untuk Kalkulasi "Tidak Hadir" jika rekap harian
-      const totalRegistered = registeredStudents.length;
-      const totalAttendedIDs = new Set(rekapData.map(r => r.student_id)).size;
-      const totalTidakHadir = Math.max(0, totalRegistered - totalAttendedIDs);
-
+      // Update konter statistik di Rekap secara lengkap
       document.getElementById('rekap-stat-total').textContent = filtered.length;
       document.getElementById('rekap-stat-hadir').textContent = filtered.filter(i => i.status === 'Hadir').length;
       document.getElementById('rekap-stat-terlambat').textContent = filtered.filter(i => i.status === 'Terlambat').length;
@@ -2113,7 +2127,7 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       document.getElementById('rekap-stat-sakit').textContent = filtered.filter(i => i.status === 'Sakit').length;
       document.getElementById('rekap-stat-izin').textContent = filtered.filter(i => i.status === 'Izin').length;
       document.getElementById('rekap-stat-dinas').textContent = filtered.filter(i => i.status === 'Dinas Luar').length;
-      document.getElementById('rekap-stat-tidakhadir').textContent = totalTidakHadir;
+      document.getElementById('rekap-stat-tidakhadir').textContent = filtered.filter(i => i.status === 'Tidak Hadir' || i.status === 'Belum Hadir').length;
       
       document.getElementById('rekap-count-badge').textContent = filtered.length + ' Record';
 
@@ -2133,21 +2147,68 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
           <td class="px-3 py-2.5">${getStatusBadgeHTML(item.status)}</td>
           <td class="px-3 py-2.5 text-center">
             <div class="flex items-center justify-center gap-1.5">
-              <select onchange="updateAttendanceStatus('${item.id}', this.value)" class="bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border text-[10px] rounded px-1.5 py-1 text-slate-800 dark:text-slate-300 focus:outline-none focus:border-emerald-500">
-                <option value="Hadir" ${item.status === 'Hadir' ? 'selected' : ''}>Hadir</option>
-                <option value="Terlambat" ${item.status === 'Terlambat' ? 'selected' : ''}>Terlambat</option>
-                <option value="Pulang" ${item.status === 'Pulang' ? 'selected' : ''}>Pulang</option>
-                <option value="Sakit" ${item.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
-                <option value="Izin" ${item.status === 'Izin' ? 'selected' : ''}>Izin</option>
-                <option value="Dinas Luar" ${item.status === 'Dinas Luar' ? 'selected' : ''}>Dinas Luar</option>
-              </select>
-              <button onclick="deleteAttendanceRecord('${item.id}')" title="Hapus Record" class="p-1 text-slate-400 hover:text-rose-500 transition-colors">
-                <i class="fa-solid fa-trash"></i>
-              </button>
+              ${item.status === 'Tidak Hadir'
+                ? `<select onchange="createOrUpdateAbsentRecord('${item.student_id}', '${item.class_name}', this.value)" class="bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border text-[10px] rounded px-1.5 py-1 text-slate-800 dark:text-slate-300 focus:outline-none focus:border-emerald-500">
+                    <option value="Tidak Hadir" selected>Tidak Hadir</option>
+                    <option value="Hadir">Hadir</option>
+                    <option value="Terlambat">Terlambat</option>
+                    <option value="Pulang">Pulang</option>
+                    <option value="Sakit">Sakit</option>
+                    <option value="Izin">Izin</option>
+                    <option value="Dinas Luar">Dinas Luar</option>
+                   </select>`
+                : `<select onchange="updateAttendanceStatus('${item.id}', this.value)" class="bg-slate-50 border-slate-300 dark:bg-slate-950 dark:border-slate-800 border text-[10px] rounded px-1.5 py-1 text-slate-800 dark:text-slate-300 focus:outline-none focus:border-emerald-500">
+                    <option value="Hadir" ${item.status === 'Hadir' ? 'selected' : ''}>Hadir</option>
+                    <option value="Terlambat" ${item.status === 'Terlambat' ? 'selected' : ''}>Terlambat</option>
+                    <option value="Pulang" ${item.status === 'Pulang' ? 'selected' : ''}>Pulang</option>
+                    <option value="Sakit" ${item.status === 'Sakit' ? 'selected' : ''}>Sakit</option>
+                    <option value="Izin" ${item.status === 'Izin' ? 'selected' : ''}>Izin</option>
+                    <option value="Dinas Luar" ${item.status === 'Dinas Luar' ? 'selected' : ''}>Dinas Luar</option>
+                   </select>
+                   <button onclick="deleteAttendanceRecord('${item.id}')" title="Hapus Record" class="p-1 text-slate-400 hover:text-rose-500 transition-colors">
+                     <i class="fa-solid fa-trash"></i>
+                   </button>`
+              }
             </div>
           </td>
         </tr>
       `).join('');
+    }
+
+    async function createOrUpdateAbsentRecord(studentId, className, newStatus) {
+      if (newStatus === 'Tidak Hadir') return;
+      const today = new Date().toISOString().split('T')[0];
+      const now = new Date();
+      const timeStr = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+
+      const newRec = {
+        id: 'att-' + Date.now(),
+        student_id: studentId,
+        class_name: className,
+        date: today,
+        time: timeStr,
+        status: newStatus
+      };
+
+      todayAttendances.unshift(newRec);
+      rekapData.unshift(newRec);
+
+      if (supabaseClient) {
+        try {
+          await supabaseClient.from('attendances').insert([{
+            student_id: studentId,
+            class_name: className,
+            date: today,
+            time: timeStr,
+            status: newStatus
+          }]);
+        } catch (e) {}
+      } else {
+        localStorage.setItem('absensi_local_attendances', JSON.stringify(rekapData));
+      }
+
+      renderAttendanceList();
+      renderRekapTable();
     }
 
     async function updateAttendanceStatus(id, newStatus) {
@@ -2187,9 +2248,33 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.attendances;
       const endDate = document.getElementById('rekap-end-date').value;
       let csv = 'No,Tanggal,Jam,NISN/NIP/NIPPPK,Nama Lengkap,Kategori,Status\n';
 
-      rekapData.forEach((item, i) => {
-        const student = registeredStudents.find(s => s.id === item.student_id) || {};
-        csv += `"${i + 1}","${item.date}","${item.time}","${student.nisn || '-'}","${student.name || 'Pengguna'}","${item.class_name}","${item.status}"\n`;
+      const attendedStudentIds = new Set(rekapData.map(a => a.student_id));
+      let combined = rekapData.map(a => {
+        const student = registeredStudents.find(s => s.id === a.student_id) || {};
+        return {
+          ...a,
+          student_name: student.name || 'Pengguna Tidak Ditemukan',
+          nisn: student.nisn || '-'
+        };
+      });
+
+      registeredStudents.forEach(s => {
+        if (!attendedStudentIds.has(s.id)) {
+          combined.push({
+            id: 'absent-' + s.id,
+            student_id: s.id,
+            class_name: s.class_name,
+            date: startDate || new Date().toISOString().split('T')[0],
+            time: '-',
+            status: 'Tidak Hadir',
+            student_name: s.name,
+            nisn: s.nisn
+          });
+        }
+      });
+
+      combined.forEach((item, i) => {
+        csv += `"${i + 1}","${item.date}","${item.time}","${item.nisn}","${item.student_name}","${item.class_name}","${item.status}"\n`;
       });
 
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
